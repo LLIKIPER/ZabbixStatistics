@@ -130,7 +130,7 @@ namespace ZabbixStatisticsService
             }.ConnectionString;
 
             Sender sender = new Sender(zabbixServer, zabbixPort);
-
+            SqlCommand command;
             while (!serviceStop)
             {
                 try
@@ -138,19 +138,20 @@ namespace ZabbixStatisticsService
                     using (SqlConnection oConnection = new SqlConnection(connectionString))
                     {
                         oConnection.Open();
-                        SqlCommand command = new SqlCommand(
-                            @"SELECT [Basename],[Param], AVG([Value]) as 'Value' FROM[Statistics]
-                          GROUP BY[Basename],[Param]
-                          TRUNCATE TABLE[Statistics]
+
+                        command = new SqlCommand(
+                            @"SELECT [Basename],[Time],[Param], [Value]
+                            FROM [Statistics]
+                            TRUNCATE TABLE[Statistics]
                           ", oConnection);
                         using (SqlDataReader reader = command.ExecuteReader())
                         {
-                            if (reader.Read())
+                            while (reader.Read())
                             {
                                 string send = String.Format("1C.Statistics[{0},{1}]", reader["BaseName"].ToString().Trim(), reader["Param"].ToString().Trim());
                                 try
                                 {
-                                    SenderResponse response = sender.Send(zabbixNodeName, send, reader["Value"].ToString());
+                                    SenderResponse response = sender.Send(zabbixNodeName, send, reader["Value"].ToString(), ((DateTime)reader["Time"]).ToUniversalTime());
                                     logger.Debug(send);
                                     logger.Debug(response.Response);
                                     logger.Debug(response.Info);
@@ -161,11 +162,16 @@ namespace ZabbixStatisticsService
                                 }
                             }
                         }
+
+                        //command = new SqlCommand("TRUNCATE TABLE[Statistics]", oConnection);
+                        //command.BeginExecuteNonQuery();
+
                         oConnection.Close();
                     }
                 }
-                catch(Exception ex) {
-                    logger.Error(ex,"Ошибка запроса данных из SQL");
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Ошибка запроса данных из SQL");
                 }
                 #region Задержка
                 for (int i = 1; i < serviceThreadSleep; i++)

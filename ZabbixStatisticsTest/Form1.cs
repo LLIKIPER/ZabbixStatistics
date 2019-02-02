@@ -50,9 +50,29 @@ namespace ZabbixStatisticsTest
             button3.Enabled = false;
         }
 
-        private void Form1_Shown(object sender, EventArgs e)
+        private void button4_Click(object sender, EventArgs e)
         {
-            button2_Click(sender, null);
+            ZabbixStatistics stat = new ZabbixStatistics();
+            stat.НазваниеБазы = "MyTest";
+            stat.Инициализация();
+            stat.Начать("Test.TestProgram");
+            Thread.Sleep(new Random().Next(200, 700));
+            stat.Отменить();
+            stat.Закончить();
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            ZabbixStatistics stat = new ZabbixStatistics();
+            stat.НазваниеБазы = "MyTest";
+            stat.Инициализация();
+            stat.Начать("Test.TestProgram", -1000);
+            Thread.Sleep(new Random().Next(200, 700));
+            // Эмулируем некорректое завершение замера
+
+            stat.Начать("Test.TestProgram", -1000);
+            Thread.Sleep(new Random().Next(200, 700));
+            stat.Закончить();
         }
     }
 

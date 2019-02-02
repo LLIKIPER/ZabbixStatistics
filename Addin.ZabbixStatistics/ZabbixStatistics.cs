@@ -20,7 +20,8 @@ namespace Addin
     {
         void Инициализация();
         string НазваниеБазы { get; set; }
-        void Начать(string key);
+        void Начать(string key, int failed_value=-1000);
+        void Отменить();
         void Закончить();
     }
 
@@ -34,7 +35,7 @@ namespace Addin
         private string sqlServer = "mysqlserver";
         private string sqlBaseName = "sqlBaseName";
         private string sqlUser = "sqlUser";
-        private string sqlPass = "sqlPass";        
+        private string sqlPass = "sqlPass";
         private string baseName = "MyBase";
         private int threadSleep = 10 * 1000;
         private int _batchSize = 100;
@@ -42,8 +43,9 @@ namespace Addin
         private string workDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         private ZabbixList list = new ZabbixList();
         private Thread thr = null;
-        private string _key;
-        private DateTime _startTime;
+        private string _key="";
+        private int _failed_value = -1000;
+        private DateTime _startTime = DateTime.MinValue;
 
         private Logger logger = LogManager.GetCurrentClassLogger();
 
@@ -75,19 +77,19 @@ namespace Addin
                 try
                 {
                     sqlServer = INI.ReadINI("SQL", "SqlServer");
-                    sqlBaseName= INI.ReadINI("SQL", "SqlBaseName");
+                    sqlBaseName = INI.ReadINI("SQL", "SqlBaseName");
                     sqlUser = INI.ReadINI("SQL", "SqlUser");
                     sqlPass = INI.ReadINI("SQL", "SqlPass");
                     threadSleep = 1000 * Convert.ToInt32(INI.ReadINI("OTHER", "ThreadSleep"));
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    logger.Error(ex,"Ошибка чтения настроек!");
-                    throw new Exception("Ошибка чтения настроек! "+ex.Message);
+                    logger.Error(ex, "Ошибка чтения настроек!");
+                    throw new Exception("Ошибка чтения настроек! " + ex.Message);
                 }
             }
             #endregion
-            
+
             thr = new Thread(SendStatistics);
             thr.IsBackground = true;
             thr.Start();
@@ -98,7 +100,7 @@ namespace Addin
 
 
         [ComVisible(true)]
-        public void Начать(string key)
+        public void Начать(string key, int failed_value = -1000)
         {
             if (thr == null)
                 throw new Exception("Перед методом \"Начать\", нужно выполнить метод \"Инициализация\"!");
@@ -106,15 +108,33 @@ namespace Addin
             if (key.Trim() == "")
                 throw new Exception("Обязательно нужно передать не пустой ключ в метод \"Начать\"");
 
+            if (_key.Trim() != "" && _startTime != DateTime.MinValue)
+            {
+                //Предыдущий замер не был завершен корректно, отправляем -1 как показатель ошибки/отмены
+                list.add(_key, _failed_value.ToString());
+            }
+            // Начало нового замера
             _key = key;
             _startTime = DateTime.Now;
+            _failed_value = failed_value;
         }
 
         [ComVisible(true)]
         public void Закончить()
         {
+            if (_startTime == DateTime.MinValue) return;
+            if (_key.Trim() == "") return;
             TimeSpan ts = DateTime.Now - _startTime;
             list.add(_key, Math.Truncate(ts.TotalMilliseconds).ToString());
+
+            Отменить();
+        }
+
+        [ComVisible(true)]
+        public void Отменить()
+        {
+            _startTime = DateTime.MinValue;
+            _key = "";
         }
 
         private void SendStatistics()
@@ -175,8 +195,9 @@ namespace Addin
                             }
                         }
                     }
-                    catch(Exception ex) {
-                        logger.Error(ex,"Ошибка отправки замеров в SQL");
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Ошибка отправки замеров в SQL");
                     }
                 }
 
@@ -268,7 +289,7 @@ namespace Addin
         {
             lock (_lock)
             {
-               return _list.Count();
+                return _list.Count();
             }
         }
 

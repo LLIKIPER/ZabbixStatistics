@@ -22,14 +22,17 @@ namespace Ysq.Zabbix
             _port = port;
         }
 
-        public SenderResponse Send(string host, string itemKey, string value, int timeout = 500)
+        public SenderResponse Send(string host, string itemKey, string value, DateTime clock, int timeout = 500)
         {
+            Int32 unixTimestamp = (Int32)(clock.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+
             dynamic req = new ExpandoObject();
             req.request = "sender data";
             dynamic d = new ExpandoObject();
             d.host = host;
             d.key = itemKey;
             d.value = value;
+            d.clock = unixTimestamp;
             req.data = new[] { d };
             var jsonReq = JsonConvert.SerializeObject(req);
             using (var tcpClient = new TcpClient(_zabbixServer, _port))
