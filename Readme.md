@@ -54,4 +54,5 @@ CREATE TABLE [dbo].[Statistics](
 
 # Описание дополнительных настроек
 ```ThreadSleep``` - задержка перед отправкой замеров компонентой в sql.
-```ServiceThreadSleep``` - задержка отправку показателей в zabbix
+
+```ServiceThreadSleep``` - задержка отправки показателей в zabbix
